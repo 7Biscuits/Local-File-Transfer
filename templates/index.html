@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#c8842a" />
+  <meta name="description" content="Local-only LAN photo & video transfer. No cloud, no internet." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="/static/style.css" />
+  <title>Photo & Video Transfer</title>
+</head>
+<body>
+
+<div class="app-wrapper">
+
+  <!-- ── Header ──────────────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="header-title">
+      <h1>📸🎬 Photo & Video Transfer</h1>
+      <div class="subtitle">MacBook Local Receiver</div>
+    </div>
+    <div class="status-badge">
+      <span class="status-dot"></span>
+      Online
+    </div>
+  </header>
+
+  <!-- ── Connection Info ─────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-label">Connection</div>
+    <div class="conn-grid">
+      <div class="conn-item">
+        <div class="label">Server IP</div>
+        <div class="value">{{ local_ip }}</div>
+      </div>
+      <div class="conn-item">
+        <div class="label">URL</div>
+        <div class="value">http://{{ local_ip }}:{{ port }}</div>
+      </div>
+    </div>
+    <div class="qr-hint mt-8">
+      📱 On your phone, open: <strong>http://{{ local_ip }}:{{ port }}</strong>
+    </div>
+  </div>
+
+  <!-- ── Desktop Dashboard ───────────────────────────────────── -->
+  <div class="stats-row">
+    <div class="stat-box">
+      <div class="stat-value" id="stat-total">{{ total_received }}</div>
+      <div class="stat-label">Total Received</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-value">{{ transfer_root.split('/')[-1] }}</div>
+      <div class="stat-label">Folder</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-value">LAN</div>
+      <div class="stat-label">Connection</div>
+    </div>
+  </div>
+
+  <!-- ── Upload Section ─────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-label">Upload Photos &amp; Videos</div>
+
+    <!--
+      TWO hidden inputs — critical for Android:
+      · accept="image/*"  → opens Google Photos / gallery (images only)
+      · accept="video/*"  → opens file manager / gallery filtered to videos
+      A single combined accept string confuses Android Chrome and shows photos only.
+    -->
+    <input type="file" id="file-input-photos" accept="image/*"  multiple style="display:none" />
+    <input type="file" id="file-input-videos" accept="video/*"  multiple style="display:none" />
+
+    <!-- Drag-and-drop zone (desktop). On mobile this is visual only;
+         tapping the buttons below triggers the correct picker. -->
+    <div class="drop-zone" id="drop-zone">
+      <span class="drop-icon">🖼️🎬</span>
+      <div class="drop-title">Drag &amp; drop here</div>
+      <div class="drop-sub">Desktop: drop photos or videos onto this area</div>
+    </div>
+
+    <!-- Two picker buttons — the mobile-primary interaction -->
+    <div class="picker-row">
+      <button class="btn btn-picker" id="btn-pick-photos">🖼️ Select Photos</button>
+      <button class="btn btn-picker" id="btn-pick-videos">🎬 Select Videos</button>
+    </div>
+
+    <!-- Gallery preview -->
+    <div id="gallery-section">
+      <div class="gallery-header">
+        <span class="gallery-count" id="gallery-count">0 files selected</span>
+        <button class="btn-clear" id="btn-clear">✕ Clear</button>
+      </div>
+      <div class="gallery-grid" id="gallery-grid"></div>
+    </div>
+
+    <!-- Transfer button -->
+    <button class="btn btn-primary mt-12" id="btn-transfer" disabled>
+      ⬆ Transfer to Mac
+    </button>
+  </div>
+
+  <!-- ── Progress ──────────────────────────────────────────── -->
+  <div id="progress-section" class="card">
+    <div class="card-label">Transferring</div>
+    <div class="progress-label">
+      <span id="prog-label">Preparing…</span>
+      <span id="prog-pct">0%</span>
+    </div>
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="prog-bar"></div>
+    </div>
+    <div class="upload-queue" id="upload-queue"></div>
+  </div>
+
+  <!-- ── Result ────────────────────────────────────────────── -->
+  <div id="result-section">
+    <div class="result-banner" id="result-banner">
+      <div class="result-headline" id="result-headline"></div>
+      <div class="result-path" id="result-path"></div>
+      <div class="result-errors" id="result-errors"></div>
+    </div>
+  </div>
+
+  <!-- ── Recent Transfers ───────────────────────────────────── -->
+  <div class="card">
+    <div class="card-label">Recent Transfers</div>
+    <div class="recent-list" id="recent-list">
+      {% if recent_uploads %}
+        {% for u in recent_uploads %}
+        <div class="recent-item">
+          <span>{% if u.filename.endswith(('.mp4','.mov','.avi','.mkv','.webm','.3gp','.m4v')) %}🎬{% else %}📷{% endif %}</span>
+          <span class="ri-name">{{ u.filename }}</span>
+          <span class="ri-size">{{ (u.size_bytes / 1024 / 1024) | round(1) }} MB</span>
+          <span class="ri-time">{{ u.timestamp }}</span>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state">No transfers yet. Send some files!</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Storage path ──────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-label">Storage Location</div>
+    <div class="conn-item" style="border-radius: var(--radius)">
+      <div class="label">Photos &amp; videos are saved to</div>
+      <div class="value">{{ transfer_root }}</div>
+    </div>
+  </div>
+
+  <!-- ── Footer ────────────────────────────────────────────── -->
+  <footer class="app-footer">
+    <div>All transfers happen directly over your local network.</div>
+    <div class="privacy-pills">
+      <span class="pill">🔒 No Cloud</span>
+      <span class="pill">📵 No Internet</span>
+      <span class="pill">👁️ No Tracking</span>
+      <span class="pill">🏠 LAN Only</span>
+    </div>
+  </footer>
+
+</div><!-- /app-wrapper -->
+
+<script src="/static/app.js"></script>
+</body>
+</html>
